@@ -1,6 +1,6 @@
 from flask import Flask
-from app import app as classify_app
-from food_detection_api import app as compare_app
+from app.app import app as classify_app
+from food_detection_api.food_detection_api import app as compare_app
 
 main_app = Flask(__name__)
 
