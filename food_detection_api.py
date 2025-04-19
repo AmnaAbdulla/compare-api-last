@@ -55,37 +55,69 @@ def classify_food_image(image_url, is_second_image=False):
 
         hsv = cv2.cvtColor(plate_area, cv2.COLOR_BGR2HSV)
 
+        plate_pixel_count = np.sum(plate_mask > 0)
+
+        # Detect curry stains (yellow-orange)
+        lower_curry = np.array([10, 100, 100])
+        upper_curry = np.array([25, 255, 255])
+        curry_mask = cv2.inRange(hsv, lower_curry, upper_curry)
+        curry_coverage = np.sum(curry_mask > 0) / plate_pixel_count
+
+        # Detect any colored stains (exclude low saturation = grayscale)
+        lower_color = np.array([0, 50, 50])
+        upper_color = np.array([179, 255, 255])
+        color_mask = cv2.inRange(hsv, lower_color, upper_color)
+        color_coverage = np.sum(color_mask > 0) / plate_pixel_count
+
+        # Detect mostly white plate
+        lower_white = np.array([0, 0, 200])
+        upper_white = np.array([180, 40, 255])
+        white_mask = cv2.inRange(hsv, lower_white, upper_white)
+        white_coverage = np.sum(white_mask > 0) / plate_pixel_count
+
+        # Detect colored plates (non-white dominant surfaces)
+        colored_plate = white_coverage < 0.6
+
+        # Original food detection
         lower_food = np.array([5, 50, 50])
         upper_food = np.array([35, 255, 255])
         food_mask = cv2.inRange(hsv, lower_food, upper_food)
+        food_coverage = np.sum(food_mask > 0) / plate_pixel_count
 
-        plate_pixel_count = np.sum(plate_mask > 0)
-        food_pixel_count = np.sum(food_mask > 0)
-        food_coverage = food_pixel_count / plate_pixel_count if plate_pixel_count > 0 else 0
-
+        # Additional yellow stain detection
         lower_yellow = np.array([20, 100, 100])
         upper_yellow = np.array([30, 255, 255])
         yellow_mask = cv2.inRange(hsv, lower_yellow, upper_yellow)
-        yellow_coverage = np.sum(yellow_mask > 0) / plate_pixel_count if plate_pixel_count > 0 else 0
+        yellow_coverage = np.sum(yellow_mask > 0) / plate_pixel_count
 
         if is_second_image:
-            # ✅ Only empty, eaten, or leftover plates should return True
-            if food_coverage < 0.1:  # Allow tiny food remnants
-                print(f"✅ Classified as empty/eaten/leftover plate: {image_url}")
+            if curry_coverage > 0.05:
+                print(f"✅ Curry stains detected: {image_url}")
                 return True
-            print(f"❌ Rejected as food is still present: {image_url}")
-            return False
+            elif color_coverage > 0.05:
+                print(f"✅ Colored stains detected: {image_url}")
+                return True
+            elif white_coverage > 0.8:
+                print(f"✅ Plain white plate detected: {image_url}")
+                return True
+            elif colored_plate:
+                print(f"✅ Colored plate detected: {image_url}")
+                return True
+            else:
+                print(f"❌ Second image rejected (no stains, food remains, or color clue): {image_url}")
+                return False
 
         else:
-            # ✅ Only plates with proper food should return True
-            if yellow_coverage > 0.6:  # Too much yellow means it might be an empty plate
-                print(f"❌ Too much yellow detected in {image_url}, rejecting.")
+            if yellow_coverage > 0.5:
+                print(f"❌ First image rejected (too much yellow): {image_url}")
                 return False
-            if food_coverage > 0.2:  # Must have at least 20% food coverage
-                print(f"✅ Classified as food plate: {image_url}")
+
+            if food_coverage > 0.2:
+                print(f"✅ Food plate detected: {image_url}")
                 return True
-            print(f"❌ Rejected as it lacks enough food: {image_url}")
-            return False
+            else:
+                print(f"❌ First image rejected (not enough food): {image_url}")
+                return False
 
     except Exception as e:
         print(f"Error processing image {image_url}: {str(e)}")
