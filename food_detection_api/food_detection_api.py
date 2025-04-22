@@ -134,8 +134,20 @@ def classify_images():
         image_url1 = data["image_url1"]
         image_url2 = data["image_url2"]
 
-        if image_url1 == image_url2:
-            print("❌ Same image submitted for both inputs. Rejecting.")
+        image1 = url_to_image(image_url1)
+        image2 = url_to_image(image_url2)
+
+        if image1 is None or image2 is None:
+            return jsonify({"error": "One or both images could not be loaded."}), 400
+
+        # Resize both to the same shape if needed
+        if image1.shape != image2.shape:
+            image2 = cv2.resize(image2, (image1.shape[1], image1.shape[0]))
+
+        # Check if images are the same
+        difference = cv2.absdiff(image1, image2)
+        if not np.any(difference):
+            print("❌ Images are visually identical. Rejecting.")
             return jsonify({
                 "final_result": False
             })
