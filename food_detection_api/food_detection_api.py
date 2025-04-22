@@ -134,6 +134,12 @@ def classify_images():
         image_url1 = data["image_url1"]
         image_url2 = data["image_url2"]
 
+        if image_url1 == image_url2:
+            print("❌ Same image submitted for both inputs. Rejecting.")
+            return jsonify({
+                "final_result": False
+            })
+
         first_result = classify_food_image(image_url1)  # Check if it's a food plate
         second_result = classify_food_image(image_url2, is_second_image=True)  # Check if it's an eaten/empty plate
 
